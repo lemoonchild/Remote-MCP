@@ -45,10 +45,56 @@ async function rpcJokesGet() {
 }
 
 async function rpcJokesSearch(params = {}) {
+    params = params || {};
     const q = String(params.q || "").toLowerCase().trim();
     const limit = Math.max(1, Math.min(Number(params.limit || 3), 10));
     const items = (q ? JOKES.filter(j => j.toLowerCase().includes(q)) : JOKES).slice(0, limit);
     return { items, total: items.length };
+}
+
+async function rpcToolsList() {
+    return {
+        tools: [
+            {
+                name: "jokes.get",
+                description: "Devuelve un chiste aleatorio.",
+                input_schema: {
+                    type: "object",
+                    properties: {},
+                    required: []
+                }
+            },
+            {
+                name: "jokes.search",
+                description: "Busca chistes por palabra clave.",
+                input_schema: {
+                    type: "object",
+                    properties: {
+                        q: {
+                            type: "string",
+                            description: "Texto para buscar dentro de los chistes"
+                        },
+                        limit: {
+                            type: "integer",
+                            minimum: 1,
+                            maximum: 10,
+                            default: 3
+                        }
+                    },
+                    required: []
+                }
+            }
+        ]
+    };
+}
+
+async function rpcToolsCall(params = {}) {
+    const { name, arguments: args = {} } = params;
+
+    if (name === "jokes.get") return await rpcJokesGet();
+    if (name === "jokes.search") return await rpcJokesSearch(args);
+
+    throw new Error(`Tool not found: ${name}`);
 }
 
 export default {
@@ -76,6 +122,24 @@ export default {
                     if (method === "jokes.get")  return { jsonrpc: "2.0", id, result: await rpcJokesGet() };
                     if (method === "jokes.search") return { jsonrpc: "2.0", id, result: await rpcJokesSearch(params) };
                     if (method === "health.ping")  return { jsonrpc: "2.0", id, result: { ok: true, service: "mcp-dadjokes" } };
+                    if (method === "tools/list") {
+                        return { jsonrpc: "2.0", id, result: await rpcToolsList() };
+                    }
+
+                    if (method === "tools/call") {
+                        try {
+                            return { jsonrpc: "2.0", id, result: await rpcToolsCall(params) };
+                        } catch (e) {
+                            return {
+                                jsonrpc: "2.0",
+                                id,
+                                error: {
+                                    code: -32601,
+                                    message: e?.message || "Tool call error"
+                                }
+                            };
+                        }
+                    }
                     return { jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found" } };
                 } catch (e) {
                     return { jsonrpc: "2.0", id, error: { code: -32000, message: "Server error", data: { message: e?.message || String(e) } } };
