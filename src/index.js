@@ -1,3 +1,4 @@
+/** @type {string[]} A list of predefined dad jokes */
 const JOKES = [
     "I would tell you a joke about construction, but I'm still working on it.",
     "I used to hate facial hair, but then it grew on me.",
@@ -31,6 +32,12 @@ const JOKES = [
     "Why did the tomato turn red? Because it saw the salad dressing."
 ];
 
+/**
+ * Returns a JSON response.
+ * @param {any} data - The data to be returned as JSON.
+ * @param {number} [status=200] - HTTP status code.
+ * @returns {Response}
+ */
 function json(data, status = 200) {
     return new Response(JSON.stringify(data), {
         status,
@@ -38,12 +45,28 @@ function json(data, status = 200) {
     });
 }
 
+/**
+ * Picks a random item from an array.
+ * @param {any[]} arr - The array to pick from.
+ * @returns {any}
+ */
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
+/**
+ * Returns a random dad joke.
+ * @returns {Promise<{ joke: string }>}
+ */
 async function rpcJokesGet() {
     return { joke: pick(JOKES) };
 }
 
+/**
+ * Searches jokes by keyword.
+ * @param {Object} params
+ * @param {string} [params.q] - Keyword to search for.
+ * @param {number} [params.limit=3] - Max number of jokes to return (1–10).
+ * @returns {Promise<{ items: string[], total: number }>}
+ */
 async function rpcJokesSearch(params = {}) {
     params = params || {};
     const q = String(params.q || "").toLowerCase().trim();
@@ -52,6 +75,10 @@ async function rpcJokesSearch(params = {}) {
     return { items, total: items.length };
 }
 
+/**
+ * Returns the list of available tools for JSON-RPC clients.
+ * @returns {Promise<{ tools: Array }>}
+ */
 async function rpcToolsList() {
     return {
         tools: [
@@ -88,6 +115,13 @@ async function rpcToolsList() {
     };
 }
 
+/**
+ * Calls a tool by name with arguments.
+ * @param {Object} params
+ * @param {string} params.name - Tool name to call.
+ * @param {Object} [params.arguments] - Arguments for the tool.
+ * @returns {Promise<any>}
+ */
 async function rpcToolsCall(params = {}) {
     const { name, arguments: args = {} } = params;
 
@@ -98,6 +132,13 @@ async function rpcToolsCall(params = {}) {
 }
 
 export default {
+
+    /**
+   * Handles incoming HTTP requests (GET /health, POST /rpc).
+   * Supports JSON-RPC 2.0 with batch and single calls.
+   * @param {Request} request - The incoming HTTP request.
+   * @returns {Promise<Response>}
+   */
     async fetch(request) {
         const url = new URL(request.url);
 
@@ -113,6 +154,11 @@ export default {
                 return json({ jsonrpc: "2.0", error: { code: -32700, message: "Parse error" } }, 400);
             }
 
+            /**
+             * Processes an individual JSON-RPC call.
+             * @param {Object} call - JSON-RPC call object.
+             * @returns {Promise<Object>}
+             */
             const handle = async (call) => {
                 if (!call || call.jsonrpc !== "2.0" || typeof call.method !== "string") {
                     return { jsonrpc: "2.0", id: call?.id, error: { code: -32600, message: "Invalid request" } };
